@@ -31,37 +31,37 @@ function GetNugetReferencesNames($projectPath) {
     return $packages;
 }
 
-function GetLocalProjectsReferencesPaths($projectPath) {
+function GetDependentProjectsPaths($projectPath) {
     $local:matches = (Select-String -Path $projectPath 'ProjectReference Include="(.*?)"' -AllMatches).Matches;
-    $local:localProjectsPaths = New-Object Collections.Generic.List[string]
+    $local:dependentProjectPaths = New-Object Collections.Generic.List[string]
 
     $local:projectDirectoryPath = Split-Path -Path $projectPath
 
     foreach ($match in $matches) {
         $local:localProjectReferenceRelativePath = $match.Groups[1];
         $local:localProjectReferenceAbsolutePath = [System.IO.Path]::GetFullPath((Join-Path -Path $projectDirectoryPath -ChildPath $localProjectReferenceRelativePath))
-        $localProjectsPaths.Add($localProjectReferenceAbsolutePath);
+        $dependentProjectPaths.Add($localProjectReferenceAbsolutePath);
     }
 
-    return $localProjectsPaths;
+    return $dependentProjectPaths;
 }
 
-function AddLocalProjectToSolution($slnPath, $projectPath) {
-    dotnet sln $slnPath add $localProject --solution-folder Libraries *>$null
-    $local:localProjectReferencesPaths = GetLocalProjectsReferencesPaths $projectPath
-    foreach ($localProjectReferencePath in $localProjectReferencesPaths) {
-        dotnet sln $slnPath add $localProjectReferencePath --solution-folder Libraries *>$null
+function AddProjectToSolution($slnPath, $projectPath) {
+    dotnet sln $slnPath add $projectPath --solution-folder Libraries *>$null
+    $local:dependentProjectsPaths = GetDependentProjectsPaths $projectPath
+    foreach ($dependentProjectPath in $dependentProjectsPaths) {
+        dotnet sln $slnPath add $dependentProjectPath --solution-folder Libraries *>$null
     }
 }
 
-function ReplaceNugetPackagesWithLocalProjects($libraryProjectPathByNameDictionary, $slnPath) {
+function ReplaceNugetPackagesWithProjectsReferences($libraryProjectPathByNameDictionary, $slnPath) {
     $local:nugetPackagesNames = GetNugetReferencesNames $projectPath
     foreach ($nugetPackageName in $nugetPackagesNames) {
         if ($libraryProjectPathByNameDictionary.ContainsKey($nugetPackageName)) {
-            $local:localProject = $libraryProjectPathByNameDictionary[$nugetPackageName]
+            $local:libraryProjectPath = $libraryProjectPathByNameDictionary[$nugetPackageName]
 
-            AddLocalProjectToSolution $slnPath $projectPath
-            dotnet add $projectPath reference $localProject *>$null
+            AddProjectToSolution $slnPath $libraryProjectPath
+            dotnet add $projectPath reference $libraryProjectPath *>$null
             dotnet remove $projectPath package $nugetPackageName *>$null
         }
     }
@@ -75,7 +75,9 @@ CreateFileBackup $slnPath
 foreach ($projectPath in $projectsPaths) {
     LogMessage ('Processing ' + $projectPath)
     CreateFileBackup $projectPath
-    ReplaceNugetPackagesWithLocalProjects $libraryProjectPathByNameDictionary $slnPath
+    ReplaceNugetPackagesWithProjectsReferences $libraryProjectPathByNameDictionary $slnPath
 }
+LogMessage ('Cleaning solution')
 dotnet clean $slnPath *>$null
+LogMessage ('Building solution')
 dotnet build $slnPath *>$null
