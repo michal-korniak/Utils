@@ -13,6 +13,10 @@ function CreateLibraryProjectPathByNameDictionary() {
     return $resultDictionary;
 }
 
+function CreateFileBackup([string]$filePath) {
+    Copy-Item -Path $filePath -Destination ($filePath + '.backup')
+}
+
 function GetNugetReferencesNames($projectPath) {
     $local:matches = (Select-String -Path $projectPath 'PackageReference Include="(.*?)"' -AllMatches).Matches;
     $local:packages = New-Object Collections.Generic.List[string]
@@ -22,28 +26,28 @@ function GetNugetReferencesNames($projectPath) {
     return $packages;
 }
 
-function ReplaceNugetPackageWithLocalProject($slnPath, $projectPath, $nugetPackageName, $localProject) {
-    dotnet sln $slnPath add $localProject
-    dotnet add $projectPath reference $localProject
-    dotnet remove $projectPath package $nugetPackageName
-}
+function ReplaceNugetPackagesWithLocalProjects($libraryProjectPathByNameDictionary, $slnPath) {
+    $local:nugetPackagesNames = GetNugetReferencesNames $projectPath
+    foreach ($nugetPackageName in $nugetPackagesNames) {
+        if ($libraryProjectPathByNameDictionary.ContainsKey($nugetPackageName)) {
+            $local:localProject = $libraryProjectPathByNameDictionary[$nugetPackageName]
 
+            dotnet sln $slnPath add $localProject --solution-folder Libraries *>$null
+            dotnet add $projectPath reference $localProject *>$null
+            dotnet remove $projectPath package $nugetPackageName *>$null
+        }
+    }
+}
 
 $local:slnPath = (Get-ChildItem $SolutionDirectoryPath -Recurse *.sln).FullName
 $local:projectsPaths = (Get-ChildItem $SolutionDirectoryPath -Recurse *.csproj).FullName
 $local:libraryProjectPathByNameDictionary = CreateLibraryProjectPathByNameDictionary
 
+CreateFileBackup $slnPath
 foreach ($projectPath in $projectsPaths) {
-    $nugetPackagesNames = GetNugetReferencesNames $projectPath
-    foreach ($nugetPackageName in $nugetPackagesNames) {
-        if ($libraryProjectPathByNameDictionary.ContainsKey($nugetPackageName)) {
-            $local:localProjectPath= $libraryProjectPathByNameDictionary[$nugetPackageName]
-            ReplaceNugetPackageWithLocalProject $slnPath $projectPath $nugetPackageName $localProjectPath
-        }
-    }
+    Write-Output ('Processing '+ $projectPath)
+    CreateFileBackup $projectPath
+    ReplaceNugetPackagesWithLocalProjects $libraryProjectPathByNameDictionary $slnPath
 }
-
-
-Write-Output "end"
-
-
+dotnet clean $slnPath *>$null
+dotnet build $slnPath *>$null
