@@ -1,6 +1,10 @@
 $local:solutionDirectoryPath = "C:\Users\michal.korniak\source\repos\KRIP"
 $local:libraryDirectoryPath = "C:\Users\michal.korniak\source\repos\Infrastructure"
 
+function LogMessage($message) {
+    $currentTime = Get-Date -format "dd-MMM-yyyy HH:mm:ss"
+    Write-Output ('[' + $currentTime + '] ' + $message)    
+}
 function CreateLibraryProjectPathByNameDictionary() {
     $local:libraryProjects = (Get-ChildItem $libraryDirectoryPath -Recurse *.csproj)
     $local:resultDictionary = @{}
@@ -68,7 +72,7 @@ $local:libraryProjectPathByNameDictionary = CreateLibraryProjectPathByNameDictio
 
 CreateFileBackup $slnPath
 foreach ($projectPath in $projectsPaths) {
-    Write-Output ('Processing ' + $projectPath)
+    LogMessage ('Processing ' + $projectPath)
     CreateFileBackup $projectPath
     ReplaceNugetPackagesWithLocalProjects $libraryProjectPathByNameDictionary $slnPath
 }
