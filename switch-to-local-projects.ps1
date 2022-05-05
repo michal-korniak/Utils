@@ -5,6 +5,7 @@ function LogMessage($message) {
     $currentTime = Get-Date -format "dd-MMM-yyyy HH:mm:ss"
     Write-Output ('[' + $currentTime + '] ' + $message)    
 }
+
 function CreateLibraryProjectPathByNameDictionary() {
     $local:libraryProjects = (Get-ChildItem $libraryDirectoryPath -Recurse *.csproj)
     $local:resultDictionary = @{}
