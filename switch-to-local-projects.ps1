@@ -1,5 +1,7 @@
-$local:solutionDirectoryPath = "C:\Users\michal.korniak\source\repos\KRIP"
-$local:libraryDirectoryPath = "C:\Users\michal.korniak\source\repos\Infrastructure"
+function LoadConfigFile() {
+    $local:config = Get-Content -Path "config.json" | ConvertFrom-Json
+    return $config
+}
 
 function LogMessage($message) {
     $currentTime = Get-Date -format "dd-MMM-yyyy HH:mm:ss"
@@ -7,7 +9,7 @@ function LogMessage($message) {
 }
 
 function CreateLibraryProjectPathByNameDictionary() {
-    $local:libraryProjects = (Get-ChildItem $libraryDirectoryPath -Recurse *.csproj)
+    $local:libraryProjects = (Get-ChildItem $config.LibraryDirectoryPath -Recurse *.csproj)
     $local:resultDictionary = @{}
     foreach ($libraryProject in $libraryProjects) {
         if (!$resultDictionary.ContainsKey($libraryProject.BaseName)) {
@@ -19,7 +21,7 @@ function CreateLibraryProjectPathByNameDictionary() {
 }
 
 function CreateFileBackup([string]$filePath) {
-    Copy-Item -Path $filePath -Destination ($filePath + '.backup')
+    Copy-Item -Path $filePath -Destination ($filePath + $config.BackupSufix)
 }
 
 function GetNugetReferencesNames($projectPath) {
@@ -67,8 +69,16 @@ function ReplaceNugetPackagesWithProjectsReferences($libraryProjectPathByNameDic
     }
 }
 
-$local:slnPath = (Get-ChildItem $SolutionDirectoryPath -Recurse *.sln).FullName
-$local:projectsPaths = (Get-ChildItem $SolutionDirectoryPath -Recurse *.csproj).FullName
+function DeleteBackupFileIfItIsSameAsOriginalFile($filePath) {
+    $local:backupFilePath = $filePath + $config.BackupSufix
+    if ((Get-FileHash $filePath).Hash -eq (Get-FileHash $backupFilePath).Hash) {
+        Remove-Item $backupFilePath
+    }
+}
+
+$local:config = LoadConfigFile
+$local:slnPath = (Get-ChildItem $config.SolutionDirectoryPath -Recurse *.sln).FullName
+$local:projectsPaths = (Get-ChildItem $config.SolutionDirectoryPath -Recurse *.csproj).FullName
 $local:libraryProjectPathByNameDictionary = CreateLibraryProjectPathByNameDictionary
 
 CreateFileBackup $slnPath
@@ -76,7 +86,11 @@ foreach ($projectPath in $projectsPaths) {
     LogMessage ('Processing ' + $projectPath)
     CreateFileBackup $projectPath
     ReplaceNugetPackagesWithProjectsReferences $libraryProjectPathByNameDictionary $slnPath
+    DeleteBackupFileIfItIsSameAsOriginalFile $projectPath
 }
+
+DeleteBackupFileIfItIsSameAsOriginalFile $slnPath
+
 LogMessage ('Cleaning solution')
 dotnet clean $slnPath *>$null
 LogMessage ('Building solution')
