@@ -8,19 +8,20 @@ function LogMessage($message) {
     Write-Output ('[' + $currentTime + '] ' + $message)    
 }
 
-function TrimEnd([string]$source, [string]$value){
-    if(!$source.EndsWith($value)){
-        return $source
-    }
 
-    return $source.Remove($source.LastIndexOf($value))
+function GetProjectName($projectPath) {
+    $local:assemblyNameMatches = (Select-String -Path $projectPath '<AssemblyName>(.*?)<\/AssemblyName>').Matches
+    if ($null -eq $assemblyNameMatches) {
+        return [System.IO.Path]::GetFileNameWithoutExtension($projectPath)
+    }
+    return $assemblyNameMatches.Groups[1].Value
 }
 
 function CreateLibraryProjectPathByNameDictionary() {
     $local:libraryProjects = (Get-ChildItem $config.LibraryDirectoryPath -Recurse *.csproj)
     $local:resultDictionary = @{}
     foreach ($libraryProject in $libraryProjects) {
-        $local:libraryProjectName = TrimEnd $libraryProject.BaseName ".Nuget"
+        $local:libraryProjectName = GetProjectName($libraryProject.FullName)
         if (!$resultDictionary.ContainsKey($libraryProjectName)) {
             $resultDictionary.Add($libraryProjectName, $libraryProject.FullName)
         }
