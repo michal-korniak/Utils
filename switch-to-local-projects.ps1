@@ -87,7 +87,7 @@ function DeleteBackupFileIfItIsSameAsOriginalFile($filePath) {
 }
 
 $local:config = LoadConfigFile
-$local:slnPath = (Get-ChildItem $config.SolutionDirectoryPath -Recurse *.sln).FullName
+$local:slnPath = (Get-ChildItem $config.SolutionDirectoryPath -Recurse *.sln)[0].FullName
 $local:projectsPaths = (Get-ChildItem $config.SolutionDirectoryPath -Recurse *.csproj).FullName
 $local:libraryProjectPathByNameDictionary = CreateLibraryProjectPathByNameDictionary
 
@@ -103,5 +103,3 @@ DeleteBackupFileIfItIsSameAsOriginalFile $slnPath
 
 LogMessage ('Cleaning solution')
 dotnet clean $slnPath *>$null
-LogMessage ('Building solution')
-dotnet build $slnPath *>$null
