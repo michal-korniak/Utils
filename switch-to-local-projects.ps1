@@ -103,3 +103,5 @@ DeleteBackupFileIfItIsSameAsOriginalFile $slnPath
 
 LogMessage ('Cleaning solution')
 dotnet clean $slnPath *>$null
+LogMessage ('Building solution')
+dotnet build $slnPath *>$null
